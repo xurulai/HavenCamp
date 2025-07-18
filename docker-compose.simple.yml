@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  # MySQL数据库
+  mysql:
+    image: mysql:8.0
+    container_name: havencamp-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: 123456
+      MYSQL_DATABASE: haven_camp_server
+      MYSQL_USER: havencamp
+      MYSQL_PASSWORD: havencamp123
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - havencamp-network
+    restart: unless-stopped
+
+  # Redis缓存
+  redis:
+    image: redis:7-alpine
+    container_name: havencamp-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - havencamp-network
+    restart: unless-stopped
+
+  # Go后端服务
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: havencamp-backend
+    depends_on:
+      - mysql
+      - redis
+    ports:
+      - "8000:8000"
+    environment:
+      - GIN_MODE=release
+    volumes:
+      - ./configs/config.docker.toml:/root/configs/config.toml
+      - ./static:/root/static
+    networks:
+      - havencamp-network
+    restart: unless-stopped
+
+  # Vue前端应用
+  frontend:
+    build:
+      context: ./web/chat-server
+      dockerfile: Dockerfile
+    container_name: havencamp-frontend
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+    networks:
+      - havencamp-network
+    restart: unless-stopped
+
+networks:
+  havencamp-network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+  redis_data: 

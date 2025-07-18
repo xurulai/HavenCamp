@@ -1,0 +1,62 @@
+# Git相关文件
+.git
+.gitignore
+.gitattributes
+
+# 文档和说明
+README.md
+DOCKER.md
+docs/
+*.md
+
+# 开发工具配置
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 日志文件
+*.log
+logs/
+
+# 临时文件
+*.tmp
+*.temp
+
+# 操作系统相关
+.DS_Store
+Thumbs.db
+
+# Node.js相关（前端构建时会处理）
+web/chat-server/node_modules/
+web/chat-server/dist/
+web/chat-server/yarn.lock
+
+# Go相关
+vendor/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Docker相关
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# 测试文件
+test/
+*_test.go
+coverage.out
+
+# 构建产物
+haven_camp_backend
+main
+
+# 环境变量文件
+.env
+.env.local
+.env.development
+.env.production 
