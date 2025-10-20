@@ -1,11 +1,12 @@
 package https_server
 
 import (
-	"github.com/gin-contrib/cors"
-	"github.com/gin-gonic/gin"
 	v1 "haven_camp_server/api/v1"
 	"haven_camp_server/internal/config"
 	"haven_camp_server/pkg/ssl"
+
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
 )
 
 var GE *gin.Engine
@@ -20,6 +21,7 @@ func init() {
 	GE.Use(ssl.TlsHandler(config.GetConfig().MainConfig.Host, config.GetConfig().MainConfig.Port))
 	GE.Static("/static/avatars", config.GetConfig().StaticAvatarPath)
 	GE.Static("/static/files", config.GetConfig().StaticFilePath)
+	GE.Static("/static/voices", config.GetConfig().StaticVoicePath)
 	GE.POST("/login", v1.Login)
 	GE.POST("/register", v1.Register)
 	GE.POST("/user/updateUserInfo", v1.UpdateUserInfo)
@@ -66,7 +68,9 @@ func init() {
 	GE.POST("/message/getGroupMessageList", v1.GetGroupMessageList)
 	GE.POST("/message/uploadAvatar", v1.UploadAvatar)
 	GE.POST("/message/uploadFile", v1.UploadFile)
+	GE.POST("/message/uploadVoice", v1.UploadVoice)
 	GE.POST("/chatroom/getCurContactListInChatRoom", v1.GetCurContactListInChatRoom)
 	GE.GET("/wss", v1.WsLogin)
+	GE.POST("/ai/chat", v1.AiChat)
 
 }

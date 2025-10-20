@@ -52,6 +52,18 @@ type KafkaConfig struct {
 type StaticSrcConfig struct {
 	StaticAvatarPath string `toml:"staticAvatarPath"`
 	StaticFilePath   string `toml:"staticFilePath"`
+	StaticVoicePath  string `toml:"staticVoicePath"`
+}
+
+type DifyConfig struct {
+	BaseUrl  string        `toml:"baseUrl"`
+	ApiKey   string        `toml:"apiKey"`
+	AppId    string        `toml:"appId"`
+	AgentId  string        `toml:"agentId"`
+	Timeout  time.Duration `toml:"timeout"`
+	AiUserId string        `toml:"aiUserId"`
+	AiName   string        `toml:"aiName"`
+	AiAvatar string        `toml:"aiAvatar"`
 }
 
 type Config struct {
@@ -62,6 +74,7 @@ type Config struct {
 	LogConfig       `toml:"logConfig"`
 	KafkaConfig     `toml:"kafkaConfig"`
 	StaticSrcConfig `toml:"staticSrcConfig"`
+	DifyConfig      `toml:"difyConfig"`
 }
 
 var config *Config

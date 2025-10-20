@@ -37,3 +37,14 @@ timeout = 1 # 单位秒
 [staticSrcConfig]
 staticAvatarPath = "./static/avatars"
 staticFilePath = "./static/files"
+staticVoicePath = "./static/voices"
+
+[difyConfig]
+baseUrl = "https://api.dify.ai/v1"
+apiKey = "your-dify-api-key"
+appId = "your-app-id"
+agentId = ""
+timeout = 30 # 单位秒
+aiUserId = "UAI000000000"
+aiName = "AI助手"
+aiAvatar = "https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png"

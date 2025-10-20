@@ -1,11 +1,12 @@
 package v1
 
 import (
-	"github.com/gin-gonic/gin"
 	"haven_camp_server/internal/dto/request"
 	"haven_camp_server/internal/service/gorm"
 	"haven_camp_server/pkg/constants"
 	"net/http"
+
+	"github.com/gin-gonic/gin"
 )
 
 // GetMessageList 获取聊天记录
@@ -42,8 +43,14 @@ func UploadAvatar(c *gin.Context) {
 	JsonBack(c, message, ret, nil)
 }
 
-// UploadFile 上传头像
+// UploadFile 上传文件
 func UploadFile(c *gin.Context) {
 	message, ret := gorm.MessageService.UploadFile(c)
+	JsonBack(c, message, ret, nil)
+}
+
+// UploadVoice 上传语音文件
+func UploadVoice(c *gin.Context) {
+	message, ret := gorm.MessageService.UploadVoice(c)
 	JsonBack(c, message, ret, nil)
 }

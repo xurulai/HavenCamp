@@ -232,6 +232,14 @@
               />
             </div>
             <div class="chat-send">
+              <el-button class="voice-btn" @click="startRecording" v-if="!isRecording">
+                <el-icon><Microphone /></el-icon>
+                语音
+              </el-button>
+              <el-button class="voice-btn recording" @click="stopRecording" v-if="isRecording">
+                <el-icon><VideoPause /></el-icon>
+                停止录音
+              </el-button>
               <el-button class="send-btn">发送</el-button>
             </div>
           </el-footer>
@@ -249,11 +257,17 @@ import { useStore } from "vuex";
 import axios from "axios";
 import Modal from "@/components/Modal.vue";
 import NavigationModal from "@/components/NavigationModal.vue";
+import { 
+  Microphone, 
+  VideoPause 
+} from "@element-plus/icons-vue";
 export default {
   name: "ContactList",
   components: {
     Modal,
     NavigationModal,
+    Microphone,
+    VideoPause,
   },
 
   setup() {
@@ -276,6 +290,12 @@ export default {
       },
       userSessionList: [],
       groupSessionList: [],
+      // 语音录制相关数据
+      isRecording: false,
+      mediaRecorder: null,
+      audioChunks: [],
+      uploadVoicePath: store.state.backendUrl + "/message/uploadVoice",
+      backendUrl: store.state.backendUrl,
     });
     onMounted(() => {
       // if (data.userInfo.avatar.startswith("/static")) {
@@ -351,6 +371,76 @@ export default {
           // 取消删除操作
         });
     };
+
+    // 语音录制相关函数
+    const startRecording = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        data.mediaRecorder = new MediaRecorder(stream);
+        data.audioChunks = [];
+        
+        data.mediaRecorder.addEventListener('dataavailable', (event) => {
+          if (event.data.size > 0) {
+            data.audioChunks.push(event.data);
+          }
+        });
+        
+        data.mediaRecorder.addEventListener('stop', () => {
+          const audioBlob = new Blob(data.audioChunks, { type: 'audio/wav' });
+          uploadVoiceFile(audioBlob);
+        });
+        
+        data.mediaRecorder.start();
+        data.isRecording = true;
+      } catch (error) {
+        console.error('录音启动失败:', error);
+        alert('无法启动录音，请检查麦克风权限');
+      }
+    };
+
+    const stopRecording = () => {
+      if (data.mediaRecorder && data.mediaRecorder.state === 'recording') {
+        data.mediaRecorder.stop();
+        data.isRecording = false;
+        
+        // 停止所有音频轨道
+        data.mediaRecorder.stream.getTracks().forEach(track => {
+          track.stop();
+        });
+      }
+    };
+
+    const uploadVoiceFile = async (audioBlob) => {
+      try {
+        const formData = new FormData();
+        const fileName = `voice_${Date.now()}.wav`;
+        formData.append('file', audioBlob, fileName);
+        
+        const response = await axios.post(data.uploadVoicePath, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+        
+        console.log('语音上传成功:', response.data);
+        
+        // 在SessionList中，我们暂时只做上传，不做发送
+        // 因为SessionList主要用于会话列表显示，实际聊天在ContactChat中进行
+        alert('语音录制成功！请在具体聊天界面中进行语音聊天。');
+        
+      } catch (error) {
+        console.error('语音上传失败:', error);
+        alert('语音上传失败，请重试');
+      }
+    };
+
+    const playVoice = (voiceUrl) => {
+      const audio = new Audio(voiceUrl);
+      audio.play().catch(error => {
+        console.error('语音播放失败:', error);
+      });
+    };
+
     return {
       ...toRefs(data),
       router,
@@ -361,6 +451,9 @@ export default {
       handleShowGroupSessionList,
       handleHideGroupSessionList,
       handleContextMenu,
+      startRecording,
+      stopRecording,
+      playVoice,
     };
   },
 };
@@ -454,5 +547,30 @@ h3 {
   width: 30px;
   height: 30px;
   margin-right: 20px;
+}
+
+/* 语音消息相关样式 */
+.voice-btn {
+  background-color: #409eff;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  padding: 8px 16px;
+  margin-right: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.voice-btn.recording {
+  background-color: #f56c6c;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
 }
 </style>

@@ -556,6 +556,55 @@
                   <div
                     v-if="
                       messageItem.send_id != userInfo.uuid &&
+                      messageItem.type == 1
+                    "
+                    class="left-message"
+                  >
+                    <div class="left-message-left">
+                      <el-image
+                        :src="messageItem.send_avatar"
+                        style="
+                          width: 40px;
+                          height: 40px;
+                          margin-left: 10px;
+                          margin-right: 10px;
+                          margin-top: 10px;
+                        "
+                      >
+                      </el-image>
+                    </div>
+
+                    <div class="left-message-right">
+                      <div class="left-message-right-top">
+                        <div class="left-message-contactname">
+                          {{ messageItem.send_name }}
+                        </div>
+                        <div class="left-message-time">
+                          {{ messageItem.created_at }}
+                        </div>
+                      </div>
+
+                      <div class="left-message-voice-container">
+                        <div class="voice-message">
+                          <div style="background-color: #f0f0f0; padding: 5px; margin-bottom: 5px; border-radius: 5px; font-size: 12px;">
+                            🔊 语音消息 (调试: type={{ messageItem.type }})
+                          </div>
+                          <el-button 
+                            class="voice-play-btn" 
+                            @click="playVoice(messageItem.url)"
+                            size="small"
+                          >
+                            <el-icon><VideoPlay /></el-icon>
+                            播放语音
+                          </el-button>
+                          <span class="voice-duration">{{ messageItem.file_size }}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    v-if="
+                      messageItem.send_id != userInfo.uuid &&
                       messageItem.type == 2
                     "
                     class="left-message"
@@ -651,6 +700,56 @@
                         <div style="display: flex; flex-direction: row-reverse">
                           <div class="right-message-content">
                             {{ messageItem.content }}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div
+                      v-if="
+                        messageItem.send_id == userInfo.uuid &&
+                        messageItem.type == 1
+                      "
+                      class="right-message"
+                    >
+                      <div class="right-message-right">
+                        <el-image
+                          :src="userInfo.avatar"
+                          style="
+                            width: 40px;
+                            height: 40px;
+                            margin-left: 10px;
+                            margin-right: 10px;
+                            margin-top: 10px;
+                          "
+                        >
+                        </el-image>
+                      </div>
+
+                      <div class="right-message-left">
+                        <div class="right-message-left-top">
+                          <div class="right-message-contactname">
+                            {{ userInfo.nickname }}
+                          </div>
+                          <div class="right-message-time">
+                            {{ messageItem.created_at }}
+                          </div>
+                        </div>
+                        <div style="display: flex; flex-direction: row-reverse">
+                          <div class="right-message-voice-container">
+                            <div class="voice-message">
+                              <div style="background-color: #e6f7ff; padding: 5px; margin-bottom: 5px; border-radius: 5px; font-size: 12px;">
+                                🔊 我的语音消息 (调试: type={{ messageItem.type }})
+                              </div>
+                              <el-button 
+                                class="voice-play-btn" 
+                                @click="playVoice(messageItem.url)"
+                                size="small"
+                              >
+                                <el-icon><VideoPlay /></el-icon>
+                                播放语音
+                              </el-button>
+                              <span class="voice-duration">{{ messageItem.file_size }}</span>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -931,6 +1030,14 @@
               />
             </div>
             <div class="chat-send">
+              <el-button class="voice-btn" @click="startRecording" v-if="!isRecording">
+                <el-icon><Microphone /></el-icon>
+                语音
+              </el-button>
+              <el-button class="voice-btn recording" @click="stopRecording" v-if="isRecording">
+                <el-icon><VideoPause /></el-icon>
+                停止录音
+              </el-button>
               <el-button class="send-btn" @click="sendMessage">发送</el-button>
             </div>
           </el-footer>
@@ -950,12 +1057,22 @@ import SmallModal from "@/components/SmallModal.vue";
 import NavigationModal from "@/components/NavigationModal.vue";
 import { ElMessage, ElMessageBox, ElScrollbar } from "element-plus";
 import { ElNotification } from "element-plus";
+import { 
+  Microphone, 
+  VideoPause, 
+  VideoPlay, 
+  Close 
+} from "@element-plus/icons-vue";
 export default {
   name: "ContactChat",
   components: {
     Modal,
     SmallModal,
     NavigationModal,
+    Microphone,
+    VideoPause,
+    VideoPlay,
+    Close,
   },
 
   setup() {
@@ -1046,6 +1163,11 @@ export default {
       curContactList: [],
       ableToReceiveOrRejectCall: false,
       ableToStartCall: true,
+      // 语音录制相关数据
+      isRecording: false,
+      mediaRecorder: null,
+      audioChunks: [],
+      uploadVoicePath: store.state.backendUrl + "/message/uploadVoice",
     });
     //这是/chat/:id 的id改变时会调用
     onBeforeRouteUpdate(async (to, from, next) => {
@@ -1071,6 +1193,10 @@ export default {
             message.send_id == data.userInfo.uuid
           ) {
             console.log("收到消息：", message);
+            console.log("消息类型：", message.type);
+            if (message.type === 1) {
+              console.log("收到语音消息！URL：", message.url);
+            }
             if (data.messageList == null) {
               data.messageList = [];
             }
@@ -2267,6 +2393,104 @@ export default {
       data.ableToReceiveOrRejectCall = false;
     };
 
+    // 语音录制相关函数
+    const startRecording = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        data.mediaRecorder = new MediaRecorder(stream);
+        data.audioChunks = [];
+        
+        data.mediaRecorder.addEventListener('dataavailable', (event) => {
+          if (event.data.size > 0) {
+            data.audioChunks.push(event.data);
+          }
+        });
+        
+        data.mediaRecorder.addEventListener('stop', () => {
+          const audioBlob = new Blob(data.audioChunks, { type: 'audio/wav' });
+          uploadVoiceFile(audioBlob);
+        });
+        
+        data.mediaRecorder.start();
+        data.isRecording = true;
+      } catch (error) {
+        console.error('录音启动失败:', error);
+        alert('无法启动录音，请检查麦克风权限');
+      }
+    };
+
+    const stopRecording = () => {
+      if (data.mediaRecorder && data.mediaRecorder.state === 'recording') {
+        data.mediaRecorder.stop();
+        data.isRecording = false;
+        
+        // 停止所有音频轨道
+        data.mediaRecorder.stream.getTracks().forEach(track => {
+          track.stop();
+        });
+      }
+    };
+
+    const uploadVoiceFile = async (audioBlob) => {
+      try {
+        const formData = new FormData();
+        const fileName = `voice_${Date.now()}.wav`;
+        formData.append('file', audioBlob, fileName);
+        
+        const response = await axios.post(data.uploadVoicePath, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+        
+        console.log('🔊 语音上传成功:', response.data);
+        
+        // 发送语音消息
+        const voiceUrl = `${data.backendUrl}/static/voices/${fileName}`;
+        console.log('🔊 准备调用sendVoiceMessage，URL:', voiceUrl);
+        sendVoiceMessage(voiceUrl, fileName, audioBlob.size);
+        
+      } catch (error) {
+        console.error('语音上传失败:', error);
+        alert('语音上传失败，请重试');
+      }
+    };
+
+    const sendVoiceMessage = (voiceUrl, fileName, fileSize) => {
+      const chatVoiceMessageRequest = {
+        session_id: data.sessionId,
+        type: 1, // 语音消息类型
+        content: "",
+        url: voiceUrl,
+        send_id: data.userInfo.uuid,
+        send_name: data.userInfo.nickname,
+        send_avatar: data.userInfo.avatar,
+        receive_id: data.contactInfo.contact_id,
+        file_size: getFileSize(fileSize),
+        file_name: fileName,
+        file_type: "audio/wav",
+      };
+      
+      console.log('🔊 准备发送语音消息:', chatVoiceMessageRequest);
+      console.log('🔊 WebSocket状态:', store.state.socket ? store.state.socket.readyState : 'socket不存在');
+      
+      if (store.state.socket && store.state.socket.readyState === WebSocket.OPEN) {
+        store.state.socket.send(JSON.stringify(chatVoiceMessageRequest));
+        console.log('🔊 语音消息已通过WebSocket发送');
+      } else {
+        console.error('🔊 WebSocket连接不可用，无法发送语音消息');
+        alert('WebSocket连接异常，请刷新页面重试');
+      }
+      scrollToBottom();
+    };
+
+    const playVoice = (voiceUrl) => {
+      const audio = new Audio(voiceUrl);
+      audio.play().catch(error => {
+        console.error('语音播放失败:', error);
+      });
+    };
+
     return {
       ...toRefs(data),
       router,
@@ -2329,6 +2553,9 @@ export default {
       closeAVContainerModal,
       rejectCall,
       endCall,
+      startRecording,
+      stopRecording,
+      playVoice,
     };
   },
 };
@@ -2816,5 +3043,69 @@ h3 {
 
 .video-modal-footer-btn {
   background-color: rgb(252, 210.9, 210.9);
+}
+
+/* 语音消息相关样式 */
+.voice-btn {
+  background-color: #409eff;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  padding: 8px 16px;
+  margin-right: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.voice-btn.recording {
+  background-color: #f56c6c;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+.voice-message {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  background-color: #f0f9ff;
+  border-radius: 10px;
+  border: 1px solid #e0e7ff;
+}
+
+.voice-play-btn {
+  background-color: #409eff;
+  color: white;
+  border: none;
+  border-radius: 20px;
+  padding: 8px 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.voice-play-btn:hover {
+  background-color: #337ecc;
+}
+
+.voice-duration {
+  font-size: 12px;
+  color: #666;
+}
+
+.left-message-voice-container {
+  margin-top: 10px;
+}
+
+.right-message-voice-container {
+  margin-top: 10px;
 }
 </style>
